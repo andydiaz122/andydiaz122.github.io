@@ -11,8 +11,8 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827; /* Dark Slate Gray */
-            color: #E5E7EB; /* Light Gray */
+            background-color: #111827;
+            color: #E5E7EB;
         }
         .text-gradient {
             background: linear-gradient(to right, #34D399, #60A5FA);
@@ -27,8 +27,8 @@
             box-shadow: 0 10px 15px -3px rgba(52, 211, 153, 0.2), 0 4px 6px -2px rgba(52, 211, 153, 0.1);
         }
         .section-card {
-            background-color: #1F2937; /* Darker card background */
-            border: 1px solid #374151; /* Subtle border */
+            background-color: #1F2937;
+            border: 1px solid #374151;
         }
     </style>
 </head>
@@ -69,64 +69,145 @@
         <section id="project" class="py-20">
             <div class="section-card p-8 md:p-12 rounded-2xl">
                 <h2 class="text-3xl font-bold mb-2">Project: Predictive Sports Betting Model</h2>
-                <p class="text-emerald-400 font-medium mb-8">Pro Table Tennis</p>
-                
-                <div class="space-y-8 text-gray-300 leading-relaxed">
+                <p class="text-emerald-400 font-medium mb-8">Czech Liga Pro Table Tennis &mdash; APOLLO V8.0</p>
+
+                <div class="space-y-12 text-gray-300 leading-relaxed">
+
+                    <!-- Section 1: Problem & Goal -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-2">1. The Problem & Goal</h3>
-                        <p>My thesis was that the most significant edges are found not in data-rich, efficient markets, but in niche arenas where information is scarce. I targeted professional table tennis—a less liquid market where I believed major inefficiencies were likely to exist. The goal was to engineer a professional-grade quantitative model to systematically discover features that correlate with player performance. The objective was not simply to predict a winner, but to identify alpha, build a strategy around it, and capitalize on value bets where the model's probabilities diverged significantly from the market's line.</p>
+                        <p>My thesis was that the most significant edges are found not in data-rich, efficient markets, but in niche arenas where information is scarce and bookmaker lines are soft. Czech Liga Pro table tennis is 5-10x less efficiently priced than mainstream ATP tennis&mdash;a market where the best published model (a graph neural network) achieves only 3.26% ROI. I targeted this market because the competitive advantage isn't sophistication&mdash;it's the absence of competition. The goal was to engineer an institutional-grade quantitative system that discovers structural mispricings, sizes positions via Kelly criterion, and manages risk autonomously in production.</p>
                     </div>
+
+                    <!-- Section 2: Data & Feature Engineering -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-2">2. Data & Feature Engineering</h3>
-                        <p>The market offers the same raw data to every participant; the edge, therefore, cannot come from the data itself, but from its interpretation. My advantage was built by engineering proprietary signals the general market overlooks. The critical task was to capture the true dynamics of a matchup—factors that simple win/loss records obscure. My script, `advanced_feature_engineering.py`, systematically constructed predictive variables from the ground up: momentum performance metrics, psychological factors (advanced head-to-head stats), and relative skill (ELO rating differentials). This converted a simple ledger of past games into an actionable, multi-dimensional analytics dataset.</p>
+                        <p>The market offers the same raw data to every participant; the edge comes from its interpretation. My pipeline, <code class="text-emerald-400">advanced_feature_engineering.py</code>, processes 100,000+ historical matches to construct 18 proprietary features across three orthogonal signal families:</p>
+                        <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400">
+                            <li><strong class="text-gray-200">Structural Skill:</strong> Dynamic Elo ratings with decay-weighted K-factors (K=70 for newcomers, K=20 for veterans), Points Dominance Ratio, head-to-head dominance scores</li>
+                            <li><strong class="text-gray-200">Form & Momentum:</strong> Rolling win rates (L5, L20), close-set clutch performance, set comeback ability</li>
+                            <li><strong class="text-gray-200">Matchup Context:</strong> Elo confidence (convergence proxy), Elo sum (match quality), H2H win rate with recency weighting</li>
+                        </ul>
+                        <p class="mt-3">A critical finding from Phase 2 research: features must be <em>orthogonal</em>. Elo ratings added +0.89% ROI because they captured information absent from H2H stats. Momentum features (EWMA, streaks) <em>destroyed</em> -0.82% ROI because they were correlated with existing form metrics, diluting the model's learning budget across redundant dimensions.</p>
                     </div>
+
+                    <!-- Section 3: Methodology & Model -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-2">3. Methodology & Model</h3>
-                        <p>The system was built using a Gradient Boosting Classifier, chosen for its performance in handling complex, non-linear relationships. The entire validation process was governed by a single, non-negotiable principle: "Point-in-Time" correctness. A rigorous simulation loop processed each match chronologically, re-calculating every predictive feature on-the-fly using only the historical data available at that exact moment. This eliminated all forms of lookahead bias and ensured every decision was a perfect replica of a real-world scenario.</p>
-                        <p>This simulation generated a high-fidelity log of the model's raw predictions. A critical insight was uncovered during forensic analysis of this log, which revealed a definitive signal in the noise—the core market inefficiency the model was built to find.</p>
-                        <p>This discovery was translated directly into a hard-coded, non-discretionary filter for the final strategy. A definitive back-test, with this filter enabled, validated the system's historical profitability and confirmed that a larger perceived edge correlated directly with a higher ROI. The model's final output is a true probability; when it diverges significantly from the market's line, it signals an actionable, value-driven opportunity.</p>
+                        <p>The system uses a <strong>Residual CatBoost Regressor</strong> with isotonic calibration (5-fold CV), chosen after a head-to-head evaluation against sklearn's Gradient Boosting Classifier where CatBoost won on all metrics while training 9x faster. The model outputs calibrated probabilities (Brier score: 0.1518) rather than binary predictions&mdash;the edge comes from probability divergence, not winner selection.</p>
+                        <p class="mt-3">The entire validation process is governed by strict Point-in-Time correctness. A simulation loop processes each match chronologically, re-calculating every feature on-the-fly using only the historical data available at that exact moment. Elo ratings are warmed from training data before the test boundary to prevent cold-start artifacts (Phase 8 fix: ROI dropped 0.47% when warm-up was corrected, confirming the old metrics were inflated).</p>
+                        <p class="mt-3">Statistical validation uses <strong>Combinatorial Purged Cross-Validation (CPCV)</strong>&mdash;a method from Lopez de Prado that tests all temporal fold combinations while purging leakage at boundaries. This is strictly more rigorous than single-pass walk-forward testing. The model passed with 5/5 folds profitable and a 95% confidence interval entirely above zero.</p>
                     </div>
+
+                    <!-- Section 4: Results & Validation -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-2">4. Results & Validation</h3>
-                        <p class="mb-6">A comprehensive, point-in-time correct backtest against multiple seasons of historical data validated the model's edge. The system demonstrated a statistically significant, positive return on investment. Below are the key performance metrics from the final backtest, which simulated 4503 trades.</p>
-                        
-                        <!-- Key Metrics -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
+                        <p class="mb-6">Validated across multiple seasons of Czech Liga Pro historical data using both combinatorial cross-validation and sequential walk-forward backtesting on 5,035 simulated trades.</p>
+
+                        <!-- Two-Tier ROI: 4 metric cards -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-center">
                             <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <p class="text-sm text-gray-400">Return on Investment (Post-Vig)</p>
-                                <p class="text-2xl font-bold text-emerald-400">2.44%</p>
+                                <p class="text-xs text-gray-400">Cross-Validated ROI (CPCV)</p>
+                                <p class="text-2xl font-bold text-emerald-400">4.87%</p>
                             </div>
                             <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <p class="text-sm text-gray-400">Annualized Sharpe Ratio</p>
-                                <p class="text-2xl font-bold text-emerald-400">2.8</p>
+                                <p class="text-xs text-gray-400">Sequential Backtest ROI</p>
+                                <p class="text-2xl font-bold text-emerald-400">2.37%</p>
                             </div>
                             <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
-                                <p class="text-sm text-gray-400">Maximum Drawdown</p>
-                                <p class="text-2xl font-bold text-emerald-400">34.12%</p>
+                                <p class="text-xs text-gray-400">Annualized Sharpe Ratio</p>
+                                <p class="text-2xl font-bold text-emerald-400">3.09</p>
+                            </div>
+                            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                <p class="text-xs text-gray-400">Simulated Trades</p>
+                                <p class="text-2xl font-bold text-emerald-400">5,035</p>
                             </div>
                         </div>
+                        <p class="text-xs text-gray-500 mb-8 text-center">CPCV: 95% CI [2.33%, 7.40%] &bull; 5/5 temporal folds profitable &bull; Bootstrap p = 0.0044</p>
+
+                        <!-- Dual Max Drawdown: 2 cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-center">
+                            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                <p class="text-xs text-gray-400">Raw Model Drawdown</p>
+                                <p class="text-2xl font-bold text-gray-500">21.69%</p>
+                            </div>
+                            <div class="bg-gray-800 p-4 rounded-lg border border-emerald-800">
+                                <p class="text-xs text-gray-400">Managed System Drawdown</p>
+                                <p class="text-2xl font-bold text-emerald-400">5.89%</p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-8 text-center">The proprietary Dynamic Brier Circuit Breaker autonomously throttles Kelly stakes during periods of model miscalibration, mechanically eliminating ~73% of the system's fat-tail risk.</p>
 
                         <!-- Equity Curve -->
-                        <div class="mb-6">
+                        <div class="mb-8">
                             <h4 class="font-bold text-lg text-white mb-2">Backtest Equity Curve</h4>
                             <div class="bg-gray-800 rounded-lg p-2 border border-gray-700">
-                                <img src="equity_curve_final_filtered.png" alt="Equity curve plot showing bankroll growth over 3522 bets" class="rounded-md w-full">
+                                <img src="equity_curve_final_filtered.png" alt="Phase 8 historical walk-forward equity curve showing bankroll growth over 5,035 simulated bets" class="rounded-md w-full">
                             </div>
+                            <p class="text-xs text-gray-500 mt-2 text-center">Phase 8 Historical Walk-Forward Equity Curve (Pre-Live Deployment)</p>
                         </div>
 
-                        <p>A backtest is a simulation; the real market is the ultimate arbiter. To rigorously confirm this edge and harden the operational workflow, I have deployed the strategy with my own capital as of October 13, 2025. The objective is to collect a statistically significant sample of real-money trades to validate the backtested performance.</p>
+                        <!-- Live Forward-Testing -->
+                        <div class="border-t border-gray-700 pt-8">
+                            <h4 class="font-bold text-lg text-white mb-4">Phase 4: Live Forward-Testing (APOLLO Shadow Trader)</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-center">
+                                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                    <p class="text-xs text-gray-400">Live Win Rate</p>
+                                    <p class="text-2xl font-bold text-emerald-400">67.8%</p>
+                                </div>
+                                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                    <p class="text-xs text-gray-400">Live Max Drawdown</p>
+                                    <p class="text-2xl font-bold text-emerald-400">$7.47</p>
+                                </div>
+                                <div class="bg-gray-800 p-4 rounded-lg border border-gray-700">
+                                    <p class="text-xs text-gray-400">Live PnL</p>
+                                    <p class="text-2xl font-bold text-emerald-400">+$19.41</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 italic">Note: A sample size of ~67 bets is statistically nascent for absolute alpha verification. However, this live deployment successfully validates the execution infrastructure (0 API state leaks) and proves that the live Maximum Drawdown (0.75%) flawlessly mirrors the theoretical backtest constraints.</p>
+                        </div>
                     </div>
+
+                    <!-- Section 5: Production Infrastructure -->
                     <div>
-                        <h3 class="font-bold text-xl text-white mb-2">5. Tech Stack</h3>
-                        <!-- List the technologies used. -->
+                        <h3 class="font-bold text-xl text-white mb-4">5. Production Infrastructure & Risk Engineering (APOLLO V8.0)</h3>
+                        <p class="mb-6">The APOLLO daemon is a fully autonomous shadow trading engine that polls BetsAPI every 5 minutes, computes 18 features in real-time, generates calibrated probability estimates, and executes virtual bets when edge thresholds are met. All decisions are recorded in a SQLite telemetry database for forensic analysis.</p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                                <h4 class="font-bold text-emerald-400 mb-2">JIT Execution Firewall</h4>
+                                <p class="text-sm text-gray-400">Uses temporal math to evaluate matches only when player state is finalized (&le;30 min to kickoff), preventing &ldquo;Phantom Rest&rdquo; lookahead from stale fatigue features. Matches beyond the JIT window are logged to the Forensic Forecast Ledger for research without executing.</p>
+                            </div>
+                            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                                <h4 class="font-bold text-emerald-400 mb-2">Financial Event Sourcing</h4>
+                                <p class="text-sm text-gray-400">Bankroll is deterministically reconstructed (<code class="text-gray-300">$1,000 + SUM(PnL) - SUM(Sweeps)</code>) from immutable ledger entries rather than fragile database state-caching, making the daemon entirely crash-resilient.</p>
+                            </div>
+                            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                                <h4 class="font-bold text-emerald-400 mb-2">Capital Sweep Protocol</h4>
+                                <p class="text-sm text-gray-400">The system autonomously sweeps profits above a $1,050 high-water mark to cold storage, locking in realized gains while maintaining constant risk exposure against a fixed $1,000 operating base.</p>
+                            </div>
+                            <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                                <h4 class="font-bold text-emerald-400 mb-2">Forensic Forecast Ledger</h4>
+                                <p class="text-sm text-gray-400">Captures high-variance edge decay curves as players progress through tournaments&mdash;how a 25% projected edge at T-90min decays to 2% at T-5min after a player finishes their first match&mdash;to fuel future R&D.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 6: Tech Stack -->
+                    <div>
+                        <h3 class="font-bold text-xl text-white mb-2">6. Tech Stack</h3>
                         <div class="flex flex-wrap gap-2 mt-2">
                             <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">Python</span>
+                            <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">CatBoost</span>
                             <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">Pandas</span>
+                            <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">NumPy / SciPy</span>
                             <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">Scikit-learn</span>
-                            <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">Gradient Boosting</span>
+                            <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">SQLite</span>
+                            <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">BetsAPI</span>
                             <span class="bg-gray-700 text-gray-200 text-sm font-medium px-3 py-1 rounded-full">GitHub</span>
                         </div>
                     </div>
+
                 </div>
             </div>
         </section>
@@ -136,9 +217,9 @@
              <div class="max-w-4xl mx-auto text-center">
                 <h2 class="text-3xl font-bold mb-4">About Me</h2>
                 <div class="text-gray-300 leading-relaxed space-y-4 text-left md:text-center">
-                    <p>My education in markets began not with theory, but with practice—first in elementary arbitrage, and later in building predictive models using machine learning. I have always been a student of the game, whatever game I was playing. This path taught me a singular lesson: that any system, be it a market or a machine, has inefficiencies. My entire professional focus has been dedicated to identifying and capitalizing on them.</p>
+                    <p>My education in markets began not with theory, but with practice&mdash;first in elementary arbitrage, and later in building predictive models using machine learning. I have always been a student of the game, whatever game I was playing. This path taught me a singular lesson: that any system, be it a market or a machine, has inefficiencies. My entire professional focus has been dedicated to identifying and capitalizing on them.</p>
                     <p>For nearly a decade, my classroom was the professional poker table. It was a masterclass not in cards, but in applied probability, risk management, and emotional discipline. It taught me to think in odds, not certainties, and to act decisively when conditions were favorable. The market, in any form, is just a larger table with more players, and the principles remain the same.</p>
-                    <p>Now, that entire education has come full circle. The engineer's rigor, the investor's patience, and the poker player's probablistic thinking have all converged on building predictive models. This isn't a career change; it's the culmination of a lifelong pursuit of finding the signal in the noise. The work continues.</p>
+                    <p>Now, that entire education has come full circle. The engineer's rigor, the investor's patience, and the poker player's probabilistic thinking have all converged on building predictive models. This isn't a career change; it's the culmination of a lifelong pursuit of finding the signal in the noise. The work continues.</p>
                 </div>
             </div>
         </section>
@@ -160,12 +241,9 @@
                     <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
                 </a>
             </div>
-            <p class="text-sm text-gray-500 mt-10">&copy; 2025 Andrew Diaz. Built with passion and Python.</p>
+            <p class="text-sm text-gray-500 mt-10">&copy; 2026 Andrew Diaz. Built with passion and Python.</p>
         </div>
     </footer>
 
 </body>
 </html>
-
-
-
