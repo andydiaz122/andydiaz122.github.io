@@ -82,20 +82,20 @@
                     <!-- Section 2: Data & Feature Engineering -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-2">2. Data & Feature Engineering</h3>
-                        <p>The market offers the same raw data to every participant; the edge comes from its interpretation. My pipeline, <code class="text-emerald-400">advanced_feature_engineering.py</code>, processes 100,000+ historical matches to construct 18 proprietary features across three orthogonal signal families:</p>
+                        <p>The market offers the same raw data to every participant; the edge comes from its interpretation. The feature engineering pipeline processes 100,000+ historical matches to construct 18 proprietary features across three orthogonal signal families:</p>
                         <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400">
-                            <li><strong class="text-gray-200">Structural Skill:</strong> Dynamic Elo ratings with decay-weighted K-factors (K=70 for newcomers, K=20 for veterans), Points Dominance Ratio, head-to-head dominance scores</li>
-                            <li><strong class="text-gray-200">Form & Momentum:</strong> Rolling win rates (L5, L20), close-set clutch performance, set comeback ability</li>
-                            <li><strong class="text-gray-200">Matchup Context:</strong> Elo confidence (convergence proxy), Elo sum (match quality), H2H win rate with recency weighting</li>
+                            <li><strong class="text-gray-200">Structural Skill:</strong> Dynamic Elo ratings with adaptive K-factor decay, dominance metrics, and point-level efficiency measures</li>
+                            <li><strong class="text-gray-200">Form & Momentum:</strong> Multi-horizon rolling performance indicators and pressure-situation metrics</li>
+                            <li><strong class="text-gray-200">Matchup Context:</strong> Rating confidence proxies, match quality signals, and head-to-head interaction features with recency weighting</li>
                         </ul>
-                        <p class="mt-3">A critical finding from Phase 2 research: features must be <em>orthogonal</em>. Elo ratings added +0.89% ROI because they captured information absent from H2H stats. Momentum features (EWMA, streaks) <em>destroyed</em> -0.82% ROI because they were correlated with existing form metrics, diluting the model's learning budget across redundant dimensions.</p>
+                        <p class="mt-3">A critical finding from iterative feature selection: features must be <em>orthogonal</em>. Through systematic ablation studies, we found that features capturing genuinely new information compound the model's edge, while features correlated with existing signals&mdash;even intuitively different ones&mdash;dilute the learning budget across redundant dimensions and destroy performance. The final 18 features were selected to maximize signal density while ensuring orthogonality.</p>
                     </div>
 
                     <!-- Section 3: Methodology & Model -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-2">3. Methodology & Model</h3>
-                        <p>The system uses a <strong>Residual CatBoost Regressor</strong> with isotonic calibration (5-fold CV), chosen after a head-to-head evaluation against sklearn's Gradient Boosting Classifier where CatBoost won on all metrics while training 9x faster. The model outputs calibrated probabilities (Brier score: 0.1518) rather than binary predictions&mdash;the edge comes from probability divergence, not winner selection.</p>
-                        <p class="mt-3">The entire validation process is governed by strict Point-in-Time correctness. A simulation loop processes each match chronologically, re-calculating every feature on-the-fly using only the historical data available at that exact moment. Elo ratings are warmed from training data before the test boundary to prevent cold-start artifacts (Phase 8 fix: ROI dropped 0.47% when warm-up was corrected, confirming the old metrics were inflated).</p>
+                        <p>The system uses a <strong>CatBoost gradient boosting model</strong> with isotonic calibration (5-fold CV), chosen after a head-to-head evaluation against sklearn's Gradient Boosting Classifier where CatBoost won on all metrics while training 9x faster. The model outputs calibrated probabilities rather than binary predictions&mdash;the edge comes from probability divergence, not winner selection.</p>
+                        <p class="mt-3">The entire validation process is governed by strict Point-in-Time correctness. A simulation loop processes each match chronologically, re-calculating every feature on-the-fly using only the historical data available at that exact moment. Elo ratings are warmed from training data before the test boundary to prevent cold-start artifacts&mdash;a fix that actually <em>reduced</em> measured ROI, confirming the corrected metrics are conservative rather than inflated.</p>
                         <p class="mt-3">Statistical validation uses <strong>Combinatorial Purged Cross-Validation (CPCV)</strong>&mdash;a method from Lopez de Prado that tests all temporal fold combinations while purging leakage at boundaries. This is strictly more rigorous than single-pass walk-forward testing. The model passed with 5/5 folds profitable and a 95% confidence interval entirely above zero.</p>
                     </div>
 
@@ -171,24 +171,24 @@
                     <!-- Section 5: Production Infrastructure -->
                     <div>
                         <h3 class="font-bold text-xl text-white mb-4">5. Production Infrastructure & Risk Engineering (APOLLO V8.0)</h3>
-                        <p class="mb-6">The APOLLO daemon is a fully autonomous shadow trading engine that polls BetsAPI every 5 minutes, computes 18 features in real-time, generates calibrated probability estimates, and executes virtual bets when edge thresholds are met. All decisions are recorded in a SQLite telemetry database for forensic analysis.</p>
+                        <p class="mb-6">The APOLLO daemon is a fully autonomous shadow trading engine that polls live match data on a configurable interval, computes all 18 features in real-time, generates calibrated probability estimates, and executes virtual bets when edge thresholds are met. All decisions are recorded in a SQLite telemetry database for forensic analysis.</p>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
                                 <h4 class="font-bold text-emerald-400 mb-2">JIT Execution Firewall</h4>
-                                <p class="text-sm text-gray-400">Uses temporal math to evaluate matches only when player state is finalized (&le;30 min to kickoff), preventing &ldquo;Phantom Rest&rdquo; lookahead from stale fatigue features. Matches beyond the JIT window are logged to the Forensic Forecast Ledger for research without executing.</p>
+                                <p class="text-sm text-gray-400">Uses temporal math to evaluate matches only when player state is finalized (within a configurable window of kickoff), preventing lookahead from stale features. Matches beyond the execution window are logged to a research ledger without executing.</p>
                             </div>
                             <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
                                 <h4 class="font-bold text-emerald-400 mb-2">Financial Event Sourcing</h4>
-                                <p class="text-sm text-gray-400">Bankroll is deterministically reconstructed (<code class="text-gray-300">$1,000 + SUM(PnL) - SUM(Sweeps)</code>) from immutable ledger entries rather than fragile database state-caching, making the daemon entirely crash-resilient.</p>
+                                <p class="text-sm text-gray-400">Bankroll is deterministically reconstructed from immutable ledger entries rather than fragile database state-caching, making the daemon entirely crash-resilient. No cached balances&mdash;financial state is always derived from the complete transaction history.</p>
                             </div>
                             <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
                                 <h4 class="font-bold text-emerald-400 mb-2">Capital Sweep Protocol</h4>
-                                <p class="text-sm text-gray-400">The system autonomously sweeps profits above a $1,050 high-water mark to cold storage, locking in realized gains while maintaining constant risk exposure against a fixed $1,000 operating base.</p>
+                                <p class="text-sm text-gray-400">The system autonomously sweeps profits above a configurable high-water mark to cold storage, locking in realized gains while maintaining constant risk exposure against a fixed operating base.</p>
                             </div>
                             <div class="bg-gray-800 p-5 rounded-lg border border-gray-700">
                                 <h4 class="font-bold text-emerald-400 mb-2">Forensic Forecast Ledger</h4>
-                                <p class="text-sm text-gray-400">Captures high-variance edge decay curves as players progress through tournaments&mdash;how a 25% projected edge at T-90min decays to 2% at T-5min after a player finishes their first match&mdash;to fuel future R&D.</p>
+                                <p class="text-sm text-gray-400">Captures edge decay curves as players progress through tournaments&mdash;tracking how projected edge evolves from early forecasts to near-kickoff evaluations&mdash;to fuel future feature engineering R&D.</p>
                             </div>
                         </div>
                     </div>
